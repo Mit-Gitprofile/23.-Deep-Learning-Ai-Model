@@ -59,7 +59,6 @@ with st.sidebar:
     st.markdown("---")
 
     session_time = int(time.time() - st.session_state.start_time)
-
     st.write(f"⏱ Session Duration: {session_time} sec")
 
 # ======================================================
@@ -191,7 +190,7 @@ if nav == "Assistant":
     label = None
     confidence = 0
 
-    # ================= IMAGE INPUT =================
+    # ================= IMAGE =================
 
     with col1:
 
@@ -213,7 +212,7 @@ if nav == "Assistant":
 
             st.session_state.detected_objects.append(label)
 
-    # ================= QUESTION INPUT =================
+    # ================= QUESTION =================
 
     with col2:
 
@@ -221,10 +220,10 @@ if nav == "Assistant":
 
         question = st.text_input(
             "✍ Type your question:",
-            value=st.session_state.question_text
+            key="question_text"
         )
 
-        st.markdown("### 🎤 Or Ask Using Voice")
+        st.markdown("### 🎤 Voice Input")
 
         voice_html = """
         <button onclick="startDictation()" 
@@ -232,7 +231,7 @@ if nav == "Assistant":
         🎤 Start Listening
         </button>
 
-        <p id="status" style="color:red;font-weight:bold;"></p>
+        <p id="status"></p>
 
 <script>
 
@@ -247,9 +246,6 @@ var recognition = new webkitSpeechRecognition();
 
 recognition.lang = "en-US";
 recognition.continuous = false;
-recognition.interimResults = false;
-
-document.getElementById("status").innerHTML="🎧 Listening...";
 
 recognition.start();
 
@@ -267,12 +263,6 @@ for (var i = 0; i < inputs.length; i++) {
     }
 }
 
-document.getElementById("status").innerHTML="✅ Voice captured: " + transcript;
-
-};
-
-recognition.onerror=function(){
-document.getElementById("status").innerHTML="❌ Voice error";
 };
 
 }
@@ -280,7 +270,7 @@ document.getElementById("status").innerHTML="❌ Voice error";
 </script>
 """
 
-        html(voice_html, height=150)
+        html(voice_html, height=120)
 
         # ================= ASK AI =================
 
@@ -292,7 +282,6 @@ document.getElementById("status").innerHTML="❌ Voice error";
                     answer = generate_answer(label, confidence, question)
                     detected = label
                     conf = confidence
-
                 else:
                     answer = f"You asked: {question}. Upload an image for object analysis."
                     detected = "No image"
@@ -311,7 +300,6 @@ document.getElementById("status").innerHTML="❌ Voice error";
     # ================= CHAT HISTORY =================
 
     st.markdown("---")
-
     st.subheader("💬 Conversation")
 
     for chat in st.session_state.history:
@@ -328,6 +316,28 @@ document.getElementById("status").innerHTML="❌ Voice error";
         </div>
         """, unsafe_allow_html=True)
 
+    # ================= DOWNLOAD =================
+
+    if st.session_state.history:
+
+        st.markdown("### 📥 Download Chat")
+
+        st.download_button(
+            "Download JSON",
+            json.dumps(st.session_state.history, indent=2),
+            "chat_history.json"
+        )
+
+        txt = "\n\n".join(
+            [f"Q: {c['question']}\nA: {c['response']}" for c in st.session_state.history]
+        )
+
+        st.download_button(
+            "Download TXT",
+            txt,
+            "chat_history.txt"
+        )
+
 # ======================================================
 # ANALYTICS PAGE
 # ======================================================
@@ -336,32 +346,19 @@ else:
 
     st.title("📊 AI Analytics Dashboard")
 
-    total_questions=len(st.session_state.history)
+    total=len(st.session_state.history)
 
-    st.metric("Total Questions", total_questions)
+    st.metric("Total Questions", total)
 
-    if total_questions>0:
+    if total>0:
 
-        avg_conf=np.mean([c["confidence"] for c in st.session_state.history])
+        avg=np.mean([c["confidence"] for c in st.session_state.history])
 
-        st.metric("Average Confidence", f"{avg_conf:.2f}%")
+        st.metric("Average Confidence", f"{avg:.2f}%")
 
-        obj_counts=Counter(st.session_state.detected_objects)
+        counts=Counter(st.session_state.detected_objects)
 
-        most_common=obj_counts.most_common(1)[0][0]
-
-        st.metric("Most Detected Object", most_common)
-
-        st.subheader("📈 Object Frequency")
-
-        st.bar_chart(obj_counts)
-
-        st.subheader("📊 Confidence Trend")
-
-        conf_list=[c["confidence"] for c in st.session_state.history]
-
-        st.line_chart(conf_list)
+        st.bar_chart(counts)
 
     else:
-
         st.info("No analytics data yet.")
