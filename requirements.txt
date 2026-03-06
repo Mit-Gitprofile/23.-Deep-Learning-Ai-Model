@@ -6,3 +6,6 @@ opencv-python-headless
 scikit-learn
 Pillow
 SpeechRecognition
+streamlit
+speechrecognition
+pydub

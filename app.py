@@ -158,16 +158,35 @@ def generate_answer(label, confidence, question):
 # ======================================================
 # VOICE INPUT
 # ======================================================
-def voice_input():
-    recognizer = sr.Recognizer()
-    with sr.Microphone() as source:
-        st.info("🎤 Listening...")
-        audio = recognizer.listen(source)
+import tempfile
+import speech_recognition as sr
+import streamlit as st
 
-    try:
-        return recognizer.recognize_google(audio)
-    except:
-        return ""
+def voice_input():
+
+    uploaded_file = st.file_uploader(
+        "Upload voice file",
+        type=["wav"]
+    )
+
+    if uploaded_file is not None:
+
+        recognizer = sr.Recognizer()
+
+        with tempfile.NamedTemporaryFile(delete=False) as temp_audio:
+            temp_audio.write(uploaded_file.read())
+            temp_audio_path = temp_audio.name
+
+        with sr.AudioFile(temp_audio_path) as source:
+            audio = recognizer.record(source)
+
+        try:
+            text = recognizer.recognize_google(audio)
+            return text
+        except:
+            return "Speech not recognized"
+
+    return None
 
 # ======================================================
 # MAIN NAVIGATION
