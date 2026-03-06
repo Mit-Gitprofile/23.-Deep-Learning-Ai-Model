@@ -5,7 +5,7 @@ import tensorflow as tf
 import json
 import time
 from collections import Counter
-from streamlit.components.v1 import html
+from streamlit_mic_recorder import speech_to_text
 
 # ======================================================
 # PAGE CONFIG
@@ -88,7 +88,7 @@ color:{text_color};
 .stButton>button {{
 background:linear-gradient(45deg,#ff416c,#ff4b2b);
 color:white;
-border-radius:12px;
+border-radius:10px;
 font-weight:bold;
 }}
 
@@ -187,10 +187,7 @@ if nav == "Assistant":
 
     col1, col2 = st.columns(2)
 
-    label = None
-    confidence = 0
-
-    # ================= IMAGE =================
+    # ================= IMAGE INPUT =================
 
     with col1:
 
@@ -212,94 +209,57 @@ if nav == "Assistant":
 
             st.session_state.detected_objects.append(label)
 
-    # ================= QUESTION =================
+    # ================= QUESTION INPUT =================
 
     with col2:
 
         st.subheader("💬 Ask Question")
 
+        # TEXT INPUT
         question = st.text_input(
             "✍ Type your question:",
-            key="question_text"
+            value=st.session_state.question_text
         )
 
+        # VOICE INPUT
         st.markdown("### 🎤 Voice Input")
 
-        voice_html = """
-        <button onclick="startDictation()" 
-        style="background:#ff4b2b;color:white;padding:10px 20px;border:none;border-radius:10px;font-weight:bold;">
-        🎤 Start Listening
-        </button>
+        voice_text = speech_to_text(
+            language="en",
+            start_prompt="🎤 Start Speaking",
+            stop_prompt="⏹ Stop",
+            use_container_width=True
+        )
 
-        <p id="status"></p>
+        if voice_text:
 
-<script>
+            st.session_state.question_text = voice_text
+            st.success(f"Voice captured: {voice_text}")
 
-function startDictation(){
-
-if(!('webkitSpeechRecognition' in window)){
-alert("Speech Recognition not supported");
-return;
-}
-
-var recognition = new webkitSpeechRecognition();
-
-recognition.lang = "en-US";
-recognition.continuous = false;
-
-recognition.start();
-
-recognition.onresult=function(event){
-
-var transcript = event.results[0][0].transcript;
-
-var inputs = window.parent.document.querySelectorAll('input');
-
-for (var i = 0; i < inputs.length; i++) {
-    if(inputs[i].type === "text"){
-        inputs[i].value = transcript;
-        inputs[i].dispatchEvent(new Event('input',{bubbles:true}));
-        break;
-    }
-}
-
-};
-
-}
-
-</script>
-"""
-
-        html(voice_html, height=120)
-
-        # ================= ASK AI =================
-
+        # ASK AI
         if st.button("🚀 Ask AI"):
 
-            if question:
+            if uploaded_file and st.session_state.question_text:
 
-                if uploaded_file:
-                    answer = generate_answer(label, confidence, question)
-                    detected = label
-                    conf = confidence
-                else:
-                    answer = f"You asked: {question}. Upload an image for object analysis."
-                    detected = "No image"
-                    conf = 0
+                answer = generate_answer(label, confidence, st.session_state.question_text)
 
                 st.session_state.history.append({
-                    "image": detected,
-                    "question": question,
-                    "response": answer,
-                    "confidence": conf
+                    "image":label,
+                    "question":st.session_state.question_text,
+                    "response":answer,
+                    "confidence":confidence
                 })
 
+                st.session_state.question_text = ""
+
             else:
-                st.warning("Please type or speak a question")
+
+                st.warning("Upload image and ask question")
 
     # ================= CHAT HISTORY =================
 
     st.markdown("---")
+
     st.subheader("💬 Conversation")
 
     for chat in st.session_state.history:
@@ -320,21 +280,17 @@ for (var i = 0; i < inputs.length; i++) {
 
     if st.session_state.history:
 
-        st.markdown("### 📥 Download Chat")
-
         st.download_button(
-            "Download JSON",
-            json.dumps(st.session_state.history, indent=2),
+            "📥 Download JSON",
+            json.dumps(st.session_state.history,indent=2),
             "chat_history.json"
         )
 
-        txt = "\n\n".join(
-            [f"Q: {c['question']}\nA: {c['response']}" for c in st.session_state.history]
-        )
+        txt_data="\n\n".join([f"Q: {c['question']}\nA: {c['response']}" for c in st.session_state.history])
 
         st.download_button(
-            "Download TXT",
-            txt,
+            "📄 Download TXT",
+            txt_data,
             "chat_history.txt"
         )
 
@@ -346,19 +302,32 @@ else:
 
     st.title("📊 AI Analytics Dashboard")
 
-    total=len(st.session_state.history)
+    total_questions=len(st.session_state.history)
 
-    st.metric("Total Questions", total)
+    st.metric("Total Questions", total_questions)
 
-    if total>0:
+    if total_questions>0:
 
-        avg=np.mean([c["confidence"] for c in st.session_state.history])
+        avg_conf=np.mean([c["confidence"] for c in st.session_state.history])
 
-        st.metric("Average Confidence", f"{avg:.2f}%")
+        st.metric("Average Confidence", f"{avg_conf:.2f}%")
 
-        counts=Counter(st.session_state.detected_objects)
+        obj_counts=Counter(st.session_state.detected_objects)
 
-        st.bar_chart(counts)
+        most_common=obj_counts.most_common(1)[0][0]
+
+        st.metric("Most Detected Object", most_common)
+
+        st.subheader("📈 Object Frequency")
+
+        st.bar_chart(obj_counts)
+
+        st.subheader("📊 Confidence Trend")
+
+        conf_list=[c["confidence"] for c in st.session_state.history]
+
+        st.line_chart(conf_list)
 
     else:
+
         st.info("No analytics data yet.")
