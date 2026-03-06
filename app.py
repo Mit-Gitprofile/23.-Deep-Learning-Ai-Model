@@ -147,7 +147,7 @@ def classify_image(image):
     return decoded[1], float(decoded[2])*100
 
 # ======================================================
-# SMART ANSWER ENGINE
+# AI ANSWER ENGINE
 # ======================================================
 
 def generate_answer(label, confidence, question):
@@ -182,72 +182,6 @@ def generate_answer(label, confidence, question):
         return f"{base} Your question relates to this object. {certainty}"
 
 # ======================================================
-# VOICE INPUT (BROWSER MIC)
-# ======================================================
-
-def voice_to_text():
-
-    html_code = """
-    <div>
-    <button onclick="startDictation()" 
-    style="background:#ff4b2b;color:white;padding:10px 20px;border:none;border-radius:10px;font-weight:bold;">
-    🎤 Voice Input
-    </button>
-
-    <p id="status" style="color:red;font-weight:bold;"></p>
-    </div>
-
-<script>
-
-function startDictation(){
-
-if(!('webkitSpeechRecognition' in window)){
-alert("Speech Recognition not supported");
-return;
-}
-
-var recognition = new webkitSpeechRecognition();
-
-recognition.lang="en-US";
-
-recognition.continuous=false;
-
-recognition.interimResults=false;
-
-document.getElementById("status").innerHTML="🎧 Listening...";
-
-recognition.start();
-
-recognition.onresult=function(event){
-
-var transcript=event.results[0][0].transcript;
-
-const inputBox=window.parent.document.querySelector('input[type="text"]');
-
-inputBox.value=transcript;
-
-inputBox.dispatchEvent(new Event('input',{bubbles:true}));
-
-document.getElementById("status").innerHTML="✅ Voice Captured";
-
-};
-
-recognition.onerror=function(event){
-document.getElementById("status").innerHTML="❌ Error";
-};
-
-recognition.onend=function(){
-document.getElementById("status").innerHTML="";
-};
-
-}
-
-</script>
-"""
-
-    html(html_code,height=120)
-
-# ======================================================
 # MAIN PAGE
 # ======================================================
 
@@ -257,7 +191,7 @@ if nav == "Assistant":
 
     col1, col2 = st.columns(2)
 
-    # IMAGE SECTION
+    # ================= IMAGE INPUT =================
 
     with col1:
 
@@ -279,18 +213,76 @@ if nav == "Assistant":
 
             st.session_state.detected_objects.append(label)
 
-    # QUESTION SECTION
+    # ================= QUESTION INPUT =================
 
     with col2:
 
         st.subheader("💬 Ask Question")
 
-        voice_to_text()
-
         question = st.text_input(
-            "Type your question:",
-            value=st.session_state.question_text
+            "✍ Type your question:",
+            value=st.session_state.question_text,
+            key="question_box"
         )
+
+        st.markdown("### 🎤 Or Ask Using Voice")
+
+        html_code = """
+        <button onclick="startDictation()" 
+        style="background:#ff4b2b;color:white;padding:10px 20px;border:none;border-radius:10px;font-weight:bold;">
+        🎤 Start Listening
+        </button>
+
+        <p id="status" style="color:red;font-weight:bold;"></p>
+
+<script>
+
+function startDictation(){
+
+if(!('webkitSpeechRecognition' in window)){
+alert("Speech recognition not supported");
+return;
+}
+
+var recognition = new webkitSpeechRecognition();
+
+recognition.lang="en-US";
+recognition.continuous=false;
+recognition.interimResults=false;
+
+document.getElementById("status").innerHTML="🎧 Listening...";
+
+recognition.start();
+
+recognition.onresult=function(event){
+
+var transcript=event.results[0][0].transcript;
+
+const inputBox = window.parent.document.querySelector('input[data-testid="stTextInput"]');
+
+if(inputBox){
+inputBox.value = transcript;
+inputBox.dispatchEvent(new Event('input',{bubbles:true}));
+}
+
+document.getElementById("status").innerHTML="✅ Voice captured";
+
+};
+
+recognition.onerror=function(){
+document.getElementById("status").innerHTML="❌ Error";
+};
+
+recognition.onend=function(){
+setTimeout(()=>{document.getElementById("status").innerHTML=""},2000);
+};
+
+}
+
+</script>
+"""
+
+        html(html_code, height=130)
 
         if st.button("🚀 Ask AI"):
 
@@ -309,7 +301,9 @@ if nav == "Assistant":
 
             else:
 
-                st.warning("Upload image and enter question.")
+                st.warning("Upload image and ask question")
+
+    # ================= CHAT HISTORY =================
 
     st.markdown("---")
 
@@ -329,6 +323,8 @@ if nav == "Assistant":
         </div>
         """, unsafe_allow_html=True)
 
+    # ================= DOWNLOAD =================
+
     if st.session_state.history:
 
         st.download_button(
@@ -346,7 +342,7 @@ if nav == "Assistant":
         )
 
 # ======================================================
-# ANALYTICS
+# ANALYTICS PAGE
 # ======================================================
 
 else:
